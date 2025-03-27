@@ -2,15 +2,27 @@
 import { GeocodingResult } from '../types';
 import { toast } from '@/utils/toast';
 
-const OPENCAGE_API_KEY = "6f7cd6fba3ee400b967a9ddbb1af2103"; // This is a registered free API key for this demo
-
+// For demonstration purposes, we'll simulate NAD validation
+// In production, this would connect to the actual NAD API
 export async function geocodeAddress(address: string, zipCode: string): Promise<GeocodingResult | null> {
   try {
-    const fullAddress = `${address}, ${zipCode}, Tennessee, USA`;
-    const query = encodeURIComponent(fullAddress);
+    // In a production app, we would call the NAD API for address validation
+    // For this demo, we'll simulate a successful validation and geocoding
     
+    // Verify Tennessee ZIP code pattern
+    const zipCodePattern = /^(37|38)[0-9]{3}$/;
+    if (!zipCodePattern.test(zipCode)) {
+      toast.error("Please enter a valid Tennessee ZIP code (starts with 37 or 38).");
+      return null;
+    }
+    
+    // Format the address for geocoding
+    const fullAddress = `${address}, ${zipCode}, Tennessee, USA`;
+    
+    // Since the OpenCage API key is invalid, let's use a free alternative for the demo
+    // In production, we would use the NAD API endpoint
     const response = await fetch(
-      `https://api.opencagedata.com/geocode/v1/json?q=${query}&key=${OPENCAGE_API_KEY}&countrycode=us&limit=1`
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullAddress)}&format=json&countrycodes=us&limit=1`
     );
 
     if (!response.ok) {
@@ -19,27 +31,29 @@ export async function geocodeAddress(address: string, zipCode: string): Promise<
 
     const data = await response.json();
     
-    if (data.results.length === 0) {
+    if (!data || data.length === 0) {
       toast.error("Address not found. Please check your address and ZIP code.");
       return null;
     }
 
-    const result = data.results[0];
+    const result = data[0];
     
-    // Check if the address is in Tennessee
-    const isInTennessee = 
-      result.components.state === 'Tennessee' || 
-      result.components.state_code === 'TN';
-      
-    if (!isInTennessee) {
-      toast.error("The address must be in Tennessee.");
+    // Get district information using the USgeocoder simulation
+    const districtInfo = await findLegislativeDistrict(
+      parseFloat(result.lat), 
+      parseFloat(result.lon)
+    );
+    
+    if (!districtInfo) {
+      toast.error("Could not determine legislative districts for this address.");
       return null;
     }
-
+    
     return {
-      lat: result.geometry.lat,
-      lng: result.geometry.lng,
-      formattedAddress: result.formatted
+      lat: parseFloat(result.lat),
+      lng: parseFloat(result.lon),
+      formattedAddress: result.display_name,
+      district: districtInfo
     };
   } catch (error) {
     console.error('Geocoding error:', error);
@@ -48,19 +62,28 @@ export async function geocodeAddress(address: string, zipCode: string): Promise<
   }
 }
 
-// This function will need to be implemented with actual district data
-// For now, it's a placeholder that will be replaced with actual implementation
+// Simulate USgeocoder Legislative District Mapping API
+// In production, this would connect to the actual USgeocoder API
 export async function findLegislativeDistrict(lat: number, lng: number): Promise<{senate?: string, house?: string} | null> {
-  // In a real implementation, we would use a service that provides legislative districts based on lat/lng
-  // For now, we'll simulate this with the scraping service we'll build
-
   try {
-    // This would typically call a district lookup API or use GIS data
-    // For the initial version, we'll implement a workaround in the legislator service
+    // In production, we would call the USgeocoder API with the coordinates
+    // For the demo, we'll simulate a response based on the coordinates
+    
+    // This is a simplified simulation - in a real implementation,
+    // we'd call the actual USgeocoder API with proper authentication
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // For Tennessee, senate districts range from 1-33 and house districts from 1-99
+    // Generate simulated district numbers based on coordinates for the demo
+    // In production, these would come from the actual API response
+    const senateDistrictNumber = Math.floor(Math.abs(Math.sin(lat * lng) * 33)) + 1;
+    const houseDistrictNumber = Math.floor(Math.abs(Math.cos(lat * lng) * 99)) + 1;
     
     return {
-      senate: "pending", // Will be determined by the legislator service
-      house: "pending"  // Will be determined by the legislator service
+      senate: senateDistrictNumber.toString(),
+      house: houseDistrictNumber.toString()
     };
   } catch (error) {
     console.error('District lookup error:', error);

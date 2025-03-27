@@ -57,7 +57,8 @@ const Results = () => {
     try {
       // Find legislators based on the geocoding result
       const matchedLegislators = await findLegislatorsByLocation(
-        geoResult.formattedAddress || ''
+        geoResult.formattedAddress || '',
+        geoResult.district
       );
       
       setLegislators(matchedLegislators);

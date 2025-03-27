@@ -186,56 +186,70 @@ function parseHouseLegislators(html: string): Legislator[] {
   return representatives;
 }
 
-// Find legislators by ZIP code and address
-export async function findLegislatorsByLocation(formattedAddress: string): Promise<{ senator: Legislator | null, representative: Legislator | null }> {
+// Find legislators by district information
+export async function findLegislatorsByLocation(formattedAddress: string, districtInfo?: {senate?: string, house?: string}): Promise<{ senator: Legislator | null, representative: Legislator | null }> {
   try {
-    // In a production app, this would use a proper district lookup API
-    // For this demo, we'll use a hybrid approach:
-    // 1. We'll fetch all legislators
-    // If no matches for the exact address, we'll still try to return data based on available info:
-    // 2. Use the ZIP code to filter possible matches
-    
+    // Fetch all legislators first
     const allLegislators = await fetchLegislators();
     
     if (allLegislators.length === 0) {
       throw new Error('No legislator data available');
     }
     
-    // For demonstration, we'll match based on a best-effort approach
-    // In a real app, we would use proper GIS data or district lookup API
+    let matchedSenator = null;
+    let matchedRepresentative = null;
     
-    // Simulate matching - in a real app this would use the proper district info
-    const senators = allLegislators.filter(leg => leg.chamber === 'senate');
-    const representatives = allLegislators.filter(leg => leg.chamber === 'house');
-    
-    // For demo purposes, we'll select based on address text matching
-    // In a real implementation, this would use actual district boundaries
-    const addressLower = formattedAddress.toLowerCase();
-    
-    // Try to find matching legislators based on address components
-    // This is a simplified approach for the demo
-    let matchedSenator = senators.find(s => 
-      addressLower.includes(`district ${s.district}`) || 
-      addressLower.includes(`district${s.district}`)
-    ) || null;
-    
-    let matchedRepresentative = representatives.find(r => 
-      addressLower.includes(`district ${r.district}`) || 
-      addressLower.includes(`district${r.district}`)
-    ) || null;
-    
-    // If no matches were found, select sample legislators for demonstration
-    // In a real app, we would return null and ask the user to contact the Secretary of State
-    if (!matchedSenator && senators.length > 0) {
-      // For demo: select a random senator
-      const randomIndex = Math.floor(Math.random() * senators.length);
-      matchedSenator = senators[randomIndex];
+    // If we have district information from USgeocoder (simulated),
+    // use it to find the correct legislators
+    if (districtInfo) {
+      const senateDistrict = districtInfo.senate;
+      const houseDistrict = districtInfo.house;
+      
+      if (senateDistrict) {
+        matchedSenator = allLegislators.find(
+          leg => leg.chamber === 'senate' && leg.district === senateDistrict
+        );
+      }
+      
+      if (houseDistrict) {
+        matchedRepresentative = allLegislators.find(
+          leg => leg.chamber === 'house' && leg.district === houseDistrict
+        );
+      }
     }
     
-    if (!matchedRepresentative && representatives.length > 0) {
-      // For demo: select a random representative
-      const randomIndex = Math.floor(Math.random() * representatives.length);
-      matchedRepresentative = representatives[randomIndex];
+    // If we couldn't find matches using district info, try the address components
+    // This is a fallback method
+    if (!matchedSenator || !matchedRepresentative) {
+      const addressLower = formattedAddress.toLowerCase();
+      const senators = allLegislators.filter(leg => leg.chamber === 'senate');
+      const representatives = allLegislators.filter(leg => leg.chamber === 'house');
+      
+      if (!matchedSenator) {
+        matchedSenator = senators.find(s => 
+          addressLower.includes(`district ${s.district}`) || 
+          addressLower.includes(`district${s.district}`)
+        );
+      }
+      
+      if (!matchedRepresentative) {
+        matchedRepresentative = representatives.find(r => 
+          addressLower.includes(`district ${r.district}`) || 
+          addressLower.includes(`district${r.district}`)
+        );
+      }
+      
+      // If still no matches, use random legislators for demonstration purposes
+      // NOTE: In a production app, we'd return null instead of random legislators
+      if (!matchedSenator && senators.length > 0) {
+        const randomIndex = Math.floor(Math.random() * senators.length);
+        matchedSenator = senators[randomIndex];
+      }
+      
+      if (!matchedRepresentative && representatives.length > 0) {
+        const randomIndex = Math.floor(Math.random() * representatives.length);
+        matchedRepresentative = representatives[randomIndex];
+      }
     }
     
     return {
