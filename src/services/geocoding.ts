@@ -2,13 +2,9 @@
 import { GeocodingResult } from '../types';
 import { toast } from '@/utils/toast';
 
-// For demonstration purposes, we'll simulate NAD validation
-// In production, this would connect to the actual NAD API
+// Use free, open-source data sources for address validation and geocoding
 export async function geocodeAddress(address: string, zipCode: string): Promise<GeocodingResult | null> {
   try {
-    // In a production app, we would call the NAD API for address validation
-    // For this demo, we'll simulate a successful validation and geocoding
-    
     // Verify Tennessee ZIP code pattern
     const zipCodePattern = /^(37|38)[0-9]{3}$/;
     if (!zipCodePattern.test(zipCode)) {
@@ -19,29 +15,34 @@ export async function geocodeAddress(address: string, zipCode: string): Promise<
     // Format the address for geocoding
     const fullAddress = `${address}, ${zipCode}, Tennessee, USA`;
     
-    // Since the OpenCage API key is invalid, let's use a free alternative for the demo
-    // In production, we would use the NAD API endpoint
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullAddress)}&format=json&countrycodes=us&limit=1`
-    );
+    // Use the Census Bureau Geocoder API for address validation and geocoding
+    // This is a free and official government data source
+    const encodedAddress = encodeURIComponent(fullAddress);
+    const censusGeocodeUrl = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodedAddress}&benchmark=2020&format=json`;
+    
+    const response = await fetch(censusGeocodeUrl);
 
     if (!response.ok) {
-      throw new Error('Geocoding API request failed');
+      throw new Error('Census Bureau Geocoding API request failed');
     }
 
     const data = await response.json();
     
-    if (!data || data.length === 0) {
+    // Check if we have valid matches from the Census Bureau Geocoder
+    if (!data.result || !data.result.addressMatches || data.result.addressMatches.length === 0) {
       toast.error("Address not found. Please check your address and ZIP code.");
       return null;
     }
 
-    const result = data[0];
+    // Get the best match
+    const bestMatch = data.result.addressMatches[0];
+    const coordinates = bestMatch.coordinates;
+    const formattedAddress = bestMatch.matchedAddress;
     
-    // Get district information using the USgeocoder simulation
+    // Get district information using the Census Bureau API
     const districtInfo = await findLegislativeDistrict(
-      parseFloat(result.lat), 
-      parseFloat(result.lon)
+      coordinates.y, // latitude
+      coordinates.x  // longitude
     );
     
     if (!districtInfo) {
@@ -50,9 +51,9 @@ export async function geocodeAddress(address: string, zipCode: string): Promise<
     }
     
     return {
-      lat: parseFloat(result.lat),
-      lng: parseFloat(result.lon),
-      formattedAddress: result.display_name,
+      lat: coordinates.y,
+      lng: coordinates.x,
+      formattedAddress: formattedAddress,
       district: districtInfo
     };
   } catch (error) {
@@ -62,28 +63,64 @@ export async function geocodeAddress(address: string, zipCode: string): Promise<
   }
 }
 
-// Simulate USgeocoder Legislative District Mapping API
-// In production, this would connect to the actual USgeocoder API
+// Use U.S. Census Bureau API to find legislative districts
 export async function findLegislativeDistrict(lat: number, lng: number): Promise<{senate?: string, house?: string} | null> {
   try {
-    // In production, we would call the USgeocoder API with the coordinates
-    // For the demo, we'll simulate a response based on the coordinates
+    // Census Bureau API for legislative district lookup
+    // This uses the Geocoder with Census Geographies to identify the correct legislative districts
+    const url = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=2020&vintage=2020&layers=all&format=json`;
     
-    // This is a simplified simulation - in a real implementation,
-    // we'd call the actual USgeocoder API with proper authentication
+    const response = await fetch(url);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (!response.ok) {
+      throw new Error('Census Bureau District API request failed');
+    }
     
-    // For Tennessee, senate districts range from 1-33 and house districts from 1-99
-    // Generate simulated district numbers based on coordinates for the demo
-    // In production, these would come from the actual API response
-    const senateDistrictNumber = Math.floor(Math.abs(Math.sin(lat * lng) * 33)) + 1;
-    const houseDistrictNumber = Math.floor(Math.abs(Math.cos(lat * lng) * 99)) + 1;
+    const data = await response.json();
+    
+    // Extract state legislative district information from the response
+    // The Census API provides both upper (Senate) and lower (House) state legislative districts
+    const geoData = data.result?.geographies;
+    
+    if (!geoData) {
+      toast.error("Could not retrieve district information from Census Bureau.");
+      return null;
+    }
+    
+    // Extract Tennessee State Senate district (Upper Chamber)
+    const senateDistricts = geoData['2020 Census State Legislative Districts - Upper'];
+    const houseDistricts = geoData['2020 Census State Legislative Districts - Lower'];
+    
+    let senateDistrict: string | undefined;
+    let houseDistrict: string | undefined;
+    
+    if (senateDistricts && senateDistricts.length > 0) {
+      // The SLDUST field contains the Senate district number
+      senateDistrict = senateDistricts[0].SLDUST;
+    }
+    
+    if (houseDistricts && houseDistricts.length > 0) {
+      // The SLDLST field contains the House district number
+      houseDistrict = houseDistricts[0].SLDLST;
+    }
+    
+    // Ensure we have valid district numbers by removing leading zeros and non-numeric characters
+    if (senateDistrict) {
+      senateDistrict = senateDistrict.replace(/^0+/, '');
+    }
+    
+    if (houseDistrict) {
+      houseDistrict = houseDistrict.replace(/^0+/, '');
+    }
+    
+    if (!senateDistrict && !houseDistrict) {
+      toast.error("No legislative districts found for this location in Tennessee.");
+      return null;
+    }
     
     return {
-      senate: senateDistrictNumber.toString(),
-      house: houseDistrictNumber.toString()
+      senate: senateDistrict,
+      house: houseDistrict
     };
   } catch (error) {
     console.error('District lookup error:', error);

@@ -1,9 +1,8 @@
 import { Legislator } from '../types';
 import { toast } from '@/utils/toast';
 
-// This service will handle fetching TN legislator data
-// In a production app, we would build a proper backend API that scrapes and caches the data
-// For this demo, we'll use client-side scraping with a CORS proxy
+// This service handles fetching TN legislator data from official sources
+// No simulated data is used - all data comes from the TN legislature website
 
 const CORS_PROXY = 'https://corsproxy.io/?';
 
@@ -35,7 +34,6 @@ async function fetchSenateLegislators(): Promise<Legislator[]> {
     const html = await response.text();
     
     // Parse the HTML to extract legislator information
-    // This is a simplified version for demo purposes
     const senators = parseSenateLegislators(html);
     return senators;
   } catch (error) {
@@ -186,10 +184,10 @@ function parseHouseLegislators(html: string): Legislator[] {
   return representatives;
 }
 
-// Find legislators by district information
+// Find legislators by district information - uses real district data from Census Bureau API
 export async function findLegislatorsByLocation(formattedAddress: string, districtInfo?: {senate?: string, house?: string}): Promise<{ senator: Legislator | null, representative: Legislator | null }> {
   try {
-    // Fetch all legislators first
+    // Fetch all legislators first from the official TN legislature website
     const allLegislators = await fetchLegislators();
     
     if (allLegislators.length === 0) {
@@ -199,8 +197,7 @@ export async function findLegislatorsByLocation(formattedAddress: string, distri
     let matchedSenator = null;
     let matchedRepresentative = null;
     
-    // If we have district information from USgeocoder (simulated),
-    // use it to find the correct legislators
+    // Use the district information from Census Bureau API to find the correct legislators
     if (districtInfo) {
       const senateDistrict = districtInfo.senate;
       const houseDistrict = districtInfo.house;
@@ -219,13 +216,14 @@ export async function findLegislatorsByLocation(formattedAddress: string, distri
     }
     
     // If we couldn't find matches using district info, try the address components
-    // This is a fallback method
+    // This is a secondary matching method using the formatted address from Census
     if (!matchedSenator || !matchedRepresentative) {
       const addressLower = formattedAddress.toLowerCase();
       const senators = allLegislators.filter(leg => leg.chamber === 'senate');
       const representatives = allLegislators.filter(leg => leg.chamber === 'house');
       
       if (!matchedSenator) {
+        // Try to match by district mention in the address
         matchedSenator = senators.find(s => 
           addressLower.includes(`district ${s.district}`) || 
           addressLower.includes(`district${s.district}`)
@@ -233,23 +231,18 @@ export async function findLegislatorsByLocation(formattedAddress: string, distri
       }
       
       if (!matchedRepresentative) {
+        // Try to match by district mention in the address
         matchedRepresentative = representatives.find(r => 
           addressLower.includes(`district ${r.district}`) || 
           addressLower.includes(`district${r.district}`)
         );
       }
-      
-      // If still no matches, use random legislators for demonstration purposes
-      // NOTE: In a production app, we'd return null instead of random legislators
-      if (!matchedSenator && senators.length > 0) {
-        const randomIndex = Math.floor(Math.random() * senators.length);
-        matchedSenator = senators[randomIndex];
-      }
-      
-      if (!matchedRepresentative && representatives.length > 0) {
-        const randomIndex = Math.floor(Math.random() * representatives.length);
-        matchedRepresentative = representatives[randomIndex];
-      }
+    }
+    
+    // If we still don't have matches, return null for both
+    // No random or simulated data will be used
+    if (!matchedSenator && !matchedRepresentative) {
+      toast.error("Could not find legislators for this address. Please verify your address is in Tennessee.");
     }
     
     return {
@@ -263,7 +256,7 @@ export async function findLegislatorsByLocation(formattedAddress: string, distri
   }
 }
 
-// Additional function to get a specific legislator by ID (for detail pages)
+// Get a specific legislator by ID (for detail pages)
 export async function getLegislatorById(id: string): Promise<Legislator | null> {
   try {
     const legislators = await fetchLegislators();
