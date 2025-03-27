@@ -55,6 +55,9 @@ const Results = () => {
     setIsLoading(true);
     
     try {
+      console.log('Fetching legislators for address:', geoResult.formattedAddress);
+      console.log('District information:', geoResult.district);
+      
       // Find legislators based on the geocoding result
       const matchedLegislators = await findLegislatorsByLocation(
         geoResult.formattedAddress || '',
@@ -65,8 +68,14 @@ const Results = () => {
       
       // Check if we found at least one legislator
       if (!matchedLegislators.senator && !matchedLegislators.representative) {
+        console.error('No legislators found for district info:', geoResult.district);
         toast.error(
           'Unable to find legislators for your address. Please verify your address or contact the TN Secretary of State for assistance.'
+        );
+      } else {
+        console.log('Successfully found legislators:', 
+          matchedLegislators.senator ? `Senator: ${matchedLegislators.senator.name}` : 'No senator found',
+          matchedLegislators.representative ? `Representative: ${matchedLegislators.representative.name}` : 'No representative found'
         );
       }
     } catch (error) {
