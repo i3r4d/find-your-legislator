@@ -15,18 +15,22 @@ export async function geocodeAddress(address: string, zipCode: string): Promise<
     // Format the address for geocoding
     const fullAddress = `${address}, ${zipCode}, Tennessee, USA`;
     
-    // Use the Census Bureau Geocoder API for address validation and geocoding
-    // This is a free and official government data source
+    // Use a CORS proxy to access the Census Bureau Geocoder API
+    // This is necessary because the Census API doesn't support CORS for browser requests
     const encodedAddress = encodeURIComponent(fullAddress);
-    const censusGeocodeUrl = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodedAddress}&benchmark=2020&format=json`;
+    const proxyUrl = 'https://corsproxy.io/?';
+    const censusGeocodeUrl = `${proxyUrl}${encodeURIComponent('https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=' + encodedAddress + '&benchmark=2020&format=json')}`;
     
+    console.log('Sending geocoding request to:', censusGeocodeUrl);
     const response = await fetch(censusGeocodeUrl);
 
     if (!response.ok) {
-      throw new Error('Census Bureau Geocoding API request failed');
+      console.error('Census API response not OK:', response.status, response.statusText);
+      throw new Error(`Census Bureau Geocoding API request failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('Census API response received:', data);
     
     // Check if we have valid matches from the Census Bureau Geocoder
     if (!data.result || !data.result.addressMatches || data.result.addressMatches.length === 0) {
@@ -68,15 +72,19 @@ export async function findLegislativeDistrict(lat: number, lng: number): Promise
   try {
     // Census Bureau API for legislative district lookup
     // This uses the Geocoder with Census Geographies to identify the correct legislative districts
-    const url = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=2020&vintage=2020&layers=all&format=json`;
+    const proxyUrl = 'https://corsproxy.io/?';
+    const url = `${proxyUrl}${encodeURIComponent('https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=' + lng + '&y=' + lat + '&benchmark=2020&vintage=2020&layers=all&format=json')}`;
     
+    console.log('Sending district lookup request to:', url);
     const response = await fetch(url);
     
     if (!response.ok) {
-      throw new Error('Census Bureau District API request failed');
+      console.error('Census API district response not OK:', response.status, response.statusText);
+      throw new Error(`Census Bureau District API request failed: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    console.log('Census API district response received:', data);
     
     // Extract state legislative district information from the response
     // The Census API provides both upper (Senate) and lower (House) state legislative districts
