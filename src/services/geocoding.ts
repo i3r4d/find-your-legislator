@@ -1,6 +1,6 @@
 
 import { GeocodingResult } from '../types';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/utils/toast';
 
 const OPENCAGE_API_KEY = "6f7cd6fba3ee400b967a9ddbb1af2103"; // This is a registered free API key for this demo
 

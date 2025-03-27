@@ -1,8 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Legislator } from '@/types';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/utils/toast';
 
 interface QRCodeGeneratorProps {
   legislators: { senator: Legislator | null; representative: Legislator | null };
@@ -13,7 +12,6 @@ const QRCodeGenerator = ({ legislators, address }: QRCodeGeneratorProps) => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Create a VCard-formatted contact card for QR code
   const generateContactData = () => {
     let contactData = `LEGISLATOR CONTACT INFO\n\n`;
     
@@ -55,7 +53,6 @@ const QRCodeGenerator = ({ legislators, address }: QRCodeGeneratorProps) => {
     try {
       const contactData = generateContactData();
       
-      // Using the QR Code Generator API
       const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${contactData}&size=200x200&margin=10`;
       setQrCodeUrl(qrCodeApiUrl);
     } catch (error) {

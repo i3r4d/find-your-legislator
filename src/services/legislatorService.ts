@@ -1,6 +1,5 @@
-
 import { Legislator } from '../types';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/utils/toast';
 
 // This service will handle fetching TN legislator data
 // In a production app, we would build a proper backend API that scrapes and caches the data

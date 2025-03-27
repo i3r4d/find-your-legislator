@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/utils/toast';
 import { AddressFormData, GeocodingResult, Legislator } from '@/types';
 import LegislatorCard from '@/components/LegislatorCard';
 import QRCodeGenerator from '@/components/QRCodeGenerator';
